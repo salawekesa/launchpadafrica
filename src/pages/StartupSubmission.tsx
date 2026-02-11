@@ -26,6 +26,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthStore } from "@/store/auth-store";
 
 interface SubmissionData {
   // Basic Information
@@ -161,13 +162,14 @@ const StartupSubmission = () => {
       const teamMembers = formData.teamMembers.filter(member => member.name.trim());
       
       // Prepare startup data
-      const startupData = {
+      const { user } = useAuthStore.getState();
+      const startupData: Record<string, unknown> = {
         name: formData.name,
         description: formData.description,
-        category: formData.category as "Web2" | "Web3", // Type assertion after validation
+        category: formData.category as "Web2" | "Web3",
         stage: formData.stage,
-        users: "0", // Default value for new submissions
-        growth: "+0%", // Default value for new submissions
+        users: "0",
+        growth: "+0%",
         tagline: formData.tagline,
         founded_date: formData.foundedDate,
         founder_name: formData.founderName,
@@ -188,11 +190,11 @@ const StartupSubmission = () => {
         milestones: formData.milestones,
         challenges: formData.challenges,
         vision: formData.vision,
-        teamMembers
+        teamMembers,
       };
-      
-      // Save via API
-      const response = await fetch('http://localhost:3001/api/startups', {
+      if (user?.id) startupData.created_by = Number(user.id);
+
+      const response = await fetch('/api/startups', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -208,10 +210,10 @@ const StartupSubmission = () => {
       
       toast({
         title: "Submission Successful!",
-        description: "Your startup has been submitted for review. You'll receive an email confirmation shortly.",
+        description: "Your startup is now on the Launch Pad. You can view it in your dashboard.",
       });
       
-      navigate("/profile");
+      navigate("/dashboard");
     } catch (error) {
       console.error('Submission error:', error);
       toast({

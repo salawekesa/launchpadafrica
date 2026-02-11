@@ -1,254 +1,481 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { 
-  ArrowLeft, 
-  User, 
-  Building2, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle, 
-  Eye,
-  Edit,
-  Trash2,
-  Calendar,
-  Mail,
-  ExternalLink
-} from "lucide-react";
+import { useState } from 'react';
+import { Navigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import {
+  Shield, Trophy, Users, MapPin, Calendar,
+  Wallet, Globe, CheckCircle2, Edit, Camera,
+  Briefcase, Sparkles, Lock, Link2Off
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useAuthStore } from '@/store/auth-store';
+import { format } from 'date-fns';
+import { connectMetaMask, isMetaMaskAvailable } from '@/lib/metamask';
 
-interface Submission {
-  id: number;
-  name: string;
-  tagline?: string;
-  category: "Web2" | "Web3";
-  stage: string;
-  status: number;
-  created_at: string;
-  reviewed_at?: string;
-  admin_feedback?: string;
-}
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+};
 
-const Profile = () => {
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function Profile() {
+  const { user, isAuthenticated, setUser, setActiveProfile, activeProfile } = useAuthStore();
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
+  const [kycLoading, setKycLoading] = useState(false);
+  const [kycError, setKycError] = useState<string | null>(null);
+  const kycComplete = user?.verificationLevel === 'level2';
+  const hasMetaMask = isMetaMaskAvailable();
+  const [kycForm, setKycForm] = useState({
+    fullName: '',
+    idType: 'national_id',
+    idNumber: '',
+    address: '',
+  });
 
-  useEffect(() => {
-    fetchSubmissions();
-  }, []);
-
-  const fetchSubmissions = async () => {
-    try {
-      // Get all startups from API
-      const response = await fetch('http://localhost:3001/api/startups');
-      if (!response.ok) {
-        throw new Error('Failed to fetch startups');
-      }
-      const startups = await response.json();
-      setSubmissions(startups);
-    } catch (error) {
-      console.error('Error fetching submissions:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getStatusBadge = (status: number) => {
-    switch (status) {
-      case 2: // Approved
-        return <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle className="w-3 h-3 mr-1" />Approved</Badge>;
-      case 3: // Under Review
-        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200"><Clock className="w-3 h-3 mr-1" />Under Review</Badge>;
-      case 4: // Rejected
-        return <Badge className="bg-red-100 text-red-800 border-red-200"><AlertCircle className="w-3 h-3 mr-1" />Rejected</Badge>;
-      default: // Pending (status = 1)
-        return <Badge variant="outline"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" replace />;
   }
 
+  const winRate = user.hackathonsAttended.length > 0
+    ? Math.round((user.hackathonsWon.length / user.hackathonsAttended.length) * 100)
+    : 0;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      {/* Navigation */}
-      <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link to="/">
-              <Button variant="ghost" className="gap-2">
-                <ArrowLeft className="w-4 h-4" />
-                Back to Home
-              </Button>
-            </Link>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="gap-2">
-                <User className="w-3 h-3" />
-                Profile
-              </Badge>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold mb-4">Your Profile</h1>
-            <p className="text-lg text-muted-foreground">
-              Manage your startup submissions and track their status.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Profile Info */}
-            <div className="lg:col-span-1">
-              <Card className="p-6">
-                <div className="text-center mb-6">
-                  <div className="w-20 h-20 rounded-full bg-gradient-primary flex items-center justify-center text-2xl font-bold mx-auto mb-4">
-                    JD
-                  </div>
-                  <h2 className="text-xl font-bold">John Doe</h2>
-                  <p className="text-muted-foreground">Founder & CEO</p>
+    <div className="container py-8">
+      <motion.div
+        initial="hidden"
+        animate="visible"
+        variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
+      >
+        <motion.div variants={fadeUp} className="mb-8">
+          <div className="glass-card p-6 sm:p-8">
+            <div className="flex flex-col sm:flex-row items-start gap-6">
+              <div className="relative group">
+                <div className="w-24 h-24 rounded-2xl bg-primary/20 flex items-center justify-center text-4xl font-bold text-primary">
+                  {user.name.charAt(0)}
                 </div>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <Mail className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm">john@example.com</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm">Member since Jan 2024</span>
-                  </div>
-                </div>
-                
-                <Separator className="my-6" />
-                
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Total Submissions</span>
-                    <span className="font-semibold">{submissions.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Approved</span>
-                    <span className="font-semibold text-green-600">
-                      {submissions.filter(s => s.status === 2).length}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Under Review</span>
-                    <span className="font-semibold text-yellow-600">
-                      {submissions.filter(s => s.status === 3).length}
-                    </span>
-                  </div>
-                </div>
-              </Card>
-            </div>
-
-            {/* Submissions */}
-            <div className="lg:col-span-2">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold">Your Submissions</h2>
-                <Link to="/submit">
-                  <Button>
-                    <Building2 className="w-4 h-4 mr-2" />
-                    Submit New Startup
-                  </Button>
-                </Link>
+                <button className="absolute inset-0 rounded-2xl bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Camera className="w-6 h-6 text-white" />
+                </button>
               </div>
-              
-              <div className="space-y-4">
-                {submissions.map((submission) => (
-                  <Card key={submission.id} className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-xl font-bold">{submission.name}</h3>
-                          {getStatusBadge(submission.status)}
+
+              <div className="flex-1">
+                <div className="flex flex-wrap items-start gap-4 mb-2">
+                  <h1 className="text-2xl sm:text-3xl font-bold">{user.name}</h1>
+                  <div className="flex gap-2">
+                    {user.verificationLevel !== 'unverified' && (
+                      <span className="verified-badge">
+                        <Shield className="w-3 h-3" />
+                        {user.verificationLevel === 'level2' ? 'Verified L2' : 'Verified L1'}
+                      </span>
+                    )}
+                    <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-xs font-medium capitalize">
+                      {user.role}
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-muted-foreground mb-4">{user.bio || 'No bio added yet'}</p>
+
+                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-4 h-4" />
+                    {user.country}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    Joined {format(new Date(user.createdAt), 'MMM yyyy')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Edit className="w-4 h-4" />
+                <Button variant="outline" className="gap-2">Edit Profile</Button>
+                {/* Builder / Investor switcher – Investor only when KYC complete */}
+                <div className="flex rounded-lg border border-border bg-muted/30 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setActiveProfile('builder')}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      activeProfile === 'builder'
+                        ? 'bg-background text-foreground shadow'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Briefcase className="w-4 h-4 inline-block mr-1.5 align-middle" />
+                    Builder
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => kycComplete && setActiveProfile('investor')}
+                    disabled={!kycComplete}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      activeProfile === 'investor'
+                        ? 'bg-background text-foreground shadow'
+                        : kycComplete
+                          ? 'text-muted-foreground hover:text-foreground'
+                          : 'cursor-not-allowed opacity-60 text-muted-foreground'
+                    }`}
+                    title={!kycComplete ? 'Complete KYC to unlock Investor menu' : undefined}
+                  >
+                    {!kycComplete && <Lock className="w-4 h-4 inline-block mr-1.5 align-middle" />}
+                    <Sparkles className="w-4 h-4 inline-block mr-1.5 align-middle" />
+                    Investor
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        <div className="grid lg:grid-cols-3 gap-8">
+          <motion.div variants={fadeUp} className="lg:col-span-2 space-y-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <StatCard icon={Trophy} value={user.hackathonsWon.length} label="Hackathons Won" />
+              <StatCard icon={Users} value={user.hackathonsAttended.length} label="Participated" />
+              <StatCard icon={CheckCircle2} value={`${winRate}%`} label="Win Rate" highlight />
+              <StatCard icon={Globe} value={user.collaborations.length} label="Collaborations" />
+            </div>
+
+            <section className="glass-card p-6">
+              <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary" />
+                Collaborations
+              </h2>
+
+              {user.collaborations.length > 0 ? (
+                <div className="space-y-4">
+                  {user.collaborations.map((collab, index) => (
+                    <div
+                      key={index}
+                      className="p-4 rounded-xl border border-border"
+                    >
+                      <div className="flex items-start justify-between gap-4 mb-3">
+                        <div>
+                          <h3 className="font-medium">{collab.projectName}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {collab.teamMembers.length} team members
+                          </p>
                         </div>
-                        <p className="text-muted-foreground mb-2">{submission.tagline}</p>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <Badge variant="outline">{submission.category}</Badge>
-                          <Badge variant="secondary">{submission.stage}</Badge>
-                          <span>Submitted {new Date(submission.created_at).toLocaleDateString()}</span>
-                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          collab.result === 'win'
+                            ? 'bg-success/15 text-success'
+                            : collab.result === 'loss'
+                              ? 'bg-muted text-muted-foreground'
+                              : 'bg-primary/15 text-primary'
+                        }`}>
+                          {collab.result === 'win' ? 'Winner' : collab.result === 'loss' ? 'Participated' : 'Ongoing'}
+                        </span>
                       </div>
-                      
+
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm">
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        {submission.status === 4 && (
-                          <Button variant="ghost" size="sm">
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                        )}
-                        <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex -space-x-2">
+                          {collab.teamMembers.slice(0, 4).map((member, i) => (
+                            <div
+                              key={i}
+                              className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-medium"
+                            >
+                              {member.name.charAt(0)}
+                            </div>
+                          ))}
+                        </div>
+                        <span className="text-sm text-muted-foreground">
+                          {collab.teamMembers.map(m => m.name.split(' ')[0]).join(', ')}
+                        </span>
                       </div>
                     </div>
-                    
-                    {submission.admin_feedback && (
-                      <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-                        <h4 className="font-semibold mb-2 flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4" />
-                          Admin Feedback
-                        </h4>
-                        <p className="text-sm text-muted-foreground">{submission.admin_feedback}</p>
-                        {submission.reviewed_at && (
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Reviewed on {new Date(submission.reviewed_at).toLocaleDateString()}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    
-                    {submission.status === 2 && (
-                      <div className="mt-4 flex items-center gap-2">
-                        <Link to={`/startup/${submission.id}`}>
-                          <Button variant="outline" size="sm">
-                            <ExternalLink className="w-4 h-4 mr-2" />
-                            View Live Listing
-                          </Button>
-                        </Link>
-                      </div>
-                    )}
-                  </Card>
-                ))}
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No collaborations yet</p>
+                </div>
+              )}
+            </section>
+
+            <section className="glass-card p-6">
+              <h2 className="text-xl font-semibold mb-6">Growth Timeline</h2>
+              <div className="h-48 rounded-xl bg-muted/50 flex items-center justify-center">
+                <p className="text-muted-foreground">Growth visualization coming soon</p>
               </div>
-              
-              {submissions.length === 0 && (
-                <Card className="p-8 text-center">
-                  <Building2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No submissions yet</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Submit your first startup to get started!
-                  </p>
-                  <Link to="/submit">
-                    <Button>
-                      <Building2 className="w-4 h-4 mr-2" />
-                      Submit Your First Startup
-                    </Button>
-                  </Link>
-                </Card>
+            </section>
+          </motion.div>
+
+          <motion.div variants={fadeUp} className="space-y-6">
+            <div className="glass-card p-6">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <Globe className="w-5 h-5 text-primary" />
+                Web3 Identity
+              </h3>
+
+              <div className="space-y-4">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Launch Pad UID</div>
+                  <div className="font-mono text-sm bg-muted px-3 py-2 rounded-lg">
+                    {user.uid}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Wallet</div>
+                  {user.walletAddress ? (
+                    <div className="space-y-2">
+                      <div className="font-mono text-sm bg-muted px-3 py-2 rounded-lg truncate">
+                        {user.walletAddress}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Connected via MetaMask</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 text-muted-foreground hover:text-destructive hover:border-destructive"
+                        disabled={walletLoading}
+                        onClick={async () => {
+                          if (!user?.id) return;
+                          setWalletLoading(true);
+                          setWalletError(null);
+                          try {
+                            const res = await fetch(`/api/users/${user.id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ wallet_address: null }),
+                            });
+                            if (res.ok) setUser({ ...user, walletAddress: undefined });
+                            else {
+                              const err = await res.json().catch(() => ({}));
+                              setWalletError(err.message || err.error || 'Failed to disconnect.');
+                            }
+                          } finally {
+                            setWalletLoading(false);
+                          }
+                        }}
+                      >
+                        <Link2Off className="w-4 h-4" />
+                        {walletLoading ? 'Disconnecting…' : 'Disconnect wallet'}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {!hasMetaMask && (
+                        <p className="text-xs text-amber-600 dark:text-amber-500">
+                          Install MetaMask to connect a real wallet.
+                        </p>
+                      )}
+                      {walletError && (
+                        <p className="text-xs text-destructive">{walletError}</p>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-2"
+                        disabled={walletLoading || !hasMetaMask}
+                        onClick={async () => {
+                          if (!user?.id) return;
+                          setWalletError(null);
+                          setWalletLoading(true);
+                          try {
+                            const { address, error } = await connectMetaMask();
+                            if (error) {
+                              setWalletError(error);
+                              return;
+                            }
+                            if (!address) return;
+                            const res = await fetch(`/api/users/${user.id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ wallet_address: address }),
+                            });
+                            if (res.ok) {
+                              const data = await res.json();
+                              setUser({
+                                ...user,
+                                walletAddress: data.wallet_address ?? undefined,
+                                verificationLevel: (data.verification_level === 'level1' || data.verification_level === 'level2')
+                                  ? data.verification_level
+                                  : user.verificationLevel,
+                              });
+                            } else {
+                              const err = await res.json().catch(() => ({}));
+                              setWalletError(err.message || err.error || 'Failed to save wallet to profile.');
+                            }
+                          } finally {
+                            setWalletLoading(false);
+                          }
+                        }}
+                      >
+                        <Wallet className="w-4 h-4" />
+                        {walletLoading ? 'Connecting…' : hasMetaMask ? 'Connect with MetaMask' : 'MetaMask required'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Soulbound NFT</div>
+                  {user.soulboundNFT ? (
+                    <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 text-center">
+                      <div className="text-sm font-medium text-primary">NFT Active</div>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl border border-dashed border-border text-center">
+                      <div className="text-sm text-muted-foreground">Not claimed yet</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="glass-card p-6">
+              <h3 className="font-semibold mb-2 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary" />
+                KYC
+              </h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                Complete KYC to unlock the Investor menu. Your wallet address is saved for transactions.
+              </p>
+
+              <div className="space-y-3 mb-4">
+                <VerificationStep label="Email Verified" completed={true} />
+                <VerificationStep
+                  label="Identity Verified"
+                  description="ID & Selfie"
+                  completed={user.verificationLevel !== 'unverified'}
+                />
+                <VerificationStep
+                  label="Address Verified"
+                  description="Proof of residence"
+                  completed={user.verificationLevel === 'level2'}
+                />
+              </div>
+
+              {user.verificationLevel !== 'level2' ? (
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!user?.id) return;
+                    setKycError(null);
+                    setKycLoading(true);
+                    try {
+                      const res = await fetch(`/api/users/${user.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ verification_level: 'level2' }),
+                      });
+                      if (res.ok) {
+                        setUser({ ...user, verificationLevel: 'level2' });
+                      } else {
+                        setKycError('Failed to complete KYC. Please try again.');
+                      }
+                    } finally {
+                      setKycLoading(false);
+                    }
+                  }}
+                  className="space-y-4 border-t border-border pt-4"
+                >
+                  <div>
+                    <Label htmlFor="kyc-fullName">Full name</Label>
+                    <Input
+                      id="kyc-fullName"
+                      placeholder="As on ID"
+                      value={kycForm.fullName}
+                      onChange={(e) => setKycForm((f) => ({ ...f, fullName: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="kyc-idType">ID type</Label>
+                    <select
+                      id="kyc-idType"
+                      value={kycForm.idType}
+                      onChange={(e) => setKycForm((f) => ({ ...f, idType: e.target.value }))}
+                      className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="national_id">National ID</option>
+                      <option value="passport">Passport</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="kyc-idNumber">ID number</Label>
+                    <Input
+                      id="kyc-idNumber"
+                      placeholder="ID or passport number"
+                      value={kycForm.idNumber}
+                      onChange={(e) => setKycForm((f) => ({ ...f, idNumber: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="kyc-address">Address (proof of residence)</Label>
+                    <Input
+                      id="kyc-address"
+                      placeholder="Street, city, country"
+                      value={kycForm.address}
+                      onChange={(e) => setKycForm((f) => ({ ...f, address: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </div>
+                  {kycError && (
+                    <p className="text-xs text-destructive">{kycError}</p>
+                  )}
+                  <Button type="submit" className="w-full gap-2" size="sm" disabled={kycLoading}>
+                    <Lock className="w-4 h-4" />
+                    {kycLoading ? 'Completing…' : 'Complete KYC (test)'}
+                  </Button>
+                </form>
+              ) : (
+                <p className="text-sm text-success border-t border-border pt-4">KYC complete. Investor menu is unlocked.</p>
               )}
             </div>
-          </div>
+          </motion.div>
         </div>
+      </motion.div>
+    </div>
+  );
+}
+
+interface StatCardProps {
+  icon: React.ElementType;
+  value: number | string;
+  label: string;
+  highlight?: boolean;
+}
+
+function StatCard({ icon: Icon, value, label, highlight }: StatCardProps) {
+  return (
+    <div className="glass-card p-4 text-center">
+      <Icon className={`w-6 h-6 mx-auto mb-2 ${highlight ? 'text-primary' : 'text-muted-foreground'}`} />
+      <div className={`text-2xl font-bold ${highlight ? 'text-gradient' : ''}`}>{value}</div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+interface VerificationStepProps {
+  label: string;
+  description?: string;
+  completed: boolean;
+}
+
+function VerificationStep({ label, description, completed }: VerificationStepProps) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+        completed ? 'bg-success/20 text-success' : 'bg-muted text-muted-foreground'
+      }`}>
+        {completed ? (
+          <CheckCircle2 className="w-4 h-4" />
+        ) : (
+          <div className="w-2 h-2 rounded-full bg-current" />
+        )}
+      </div>
+      <div>
+        <div className="text-sm font-medium">{label}</div>
+        {description && (
+          <div className="text-xs text-muted-foreground">{description}</div>
+        )}
       </div>
     </div>
   );
-};
-
-export default Profile;
+}
