@@ -1,4 +1,5 @@
 # 🚀 LaunchpadAFRICA
+# 🚀 LaunchpadAFRICA
 
 > **The premier platform for discovering, supporting, and celebrating the next generation of Web2 and Web3 startups across Africa.**
 
@@ -26,6 +27,8 @@
 ### What is Launchpad
 
 LaunchpadAFRICA is a comprehensive startup ecosystem platform designed to showcase, support, and accelerate the growth of innovative startups across Africa. Our platform serves as a bridge between promising startups and the broader tech community, investors, and potential users.
+
+
 
 ### Mission Statement
 
