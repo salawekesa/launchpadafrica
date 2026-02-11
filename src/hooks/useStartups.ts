@@ -12,10 +12,10 @@ export interface Startup {
   updated_at: string;
 }
 
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE = ''; // same origin: server.js in prod, proxied in dev
 
 const fetchStartups = async (category?: string): Promise<Startup[]> => {
-  const url = category ? `${API_BASE_URL}/startups/category/${category}` : `${API_BASE_URL}/startups`;
+  const url = category ? `${API_BASE}/api/startups/category/${category}` : `${API_BASE}/api/startups`;
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error('Failed to fetch startups');

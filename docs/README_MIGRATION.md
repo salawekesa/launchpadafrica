@@ -49,11 +49,12 @@ plp-spark-launch/
 │   │   └── api.ts               # Express API server
 │   └── scripts/
 │       └── init-db.ts           # Database initialization
+├── docs/
+│   ├── DATABASE_SETUP.md        # Detailed setup guide
+│   ├── QUICK_START.md           # Quick setup guide
+│   └── MIGRATION_GUIDE.md       # This file
 ├── .env                         # Environment variables
-├── .env.example                 # Environment template
-├── DATABASE_SETUP.md            # Detailed setup guide
-├── QUICK_START.md               # Quick setup guide
-└── MIGRATION_GUIDE.md           # This file
+└── .env.example                 # Environment template
 ```
 
 ## 🔧 Available Commands
@@ -79,7 +80,7 @@ plp-spark-launch/
 
 ## 🎯 Next Steps
 
-1. **Install PostgreSQL** (see `QUICK_START.md`)
+1. **Install PostgreSQL** (see `docs/QUICK_START.md`)
 2. **Create database** (`lift`)
 3. **Update `.env`** with your credentials
 4. **Initialize database** (`npm run init-db`)

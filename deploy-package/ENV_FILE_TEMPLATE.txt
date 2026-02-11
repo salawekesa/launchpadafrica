@@ -1,0 +1,91 @@
+================================================================================
+  COPY THIS TO CREATE YOUR .env FILE
+================================================================================
+
+INSTRUCTIONS:
+1. Create a new file in this folder called:    .env
+   (Yes, it starts with a dot and has no extension)
+
+2. Copy the text below into that file
+
+3. Replace the placeholder values with your actual Hostinger database info
+
+================================================================================
+
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=your_database_name
+DB_USER=your_database_user
+DB_PASSWORD=your_database_password
+PORT=3000
+NODE_ENV=production
+
+================================================================================
+
+EXPLANATION OF EACH VARIABLE:
+
+DB_HOST=localhost
+  → Keep as "localhost" (your database is on the same server)
+
+DB_PORT=5432
+  → Keep as 5432 (standard PostgreSQL port)
+
+DB_NAME=your_database_name
+  → REPLACE with your actual database name from Hostinger
+  → Example: yourusername_lift
+
+DB_USER=your_database_user
+  → REPLACE with your database username from Hostinger
+  → Example: yourusername_liftuser
+
+DB_PASSWORD=your_database_password
+  → REPLACE with the password you set for the database user
+
+PORT=3000
+  → Keep as 3000 (or any port Hostinger provides)
+
+NODE_ENV=production
+  → Keep as "production"
+
+================================================================================
+
+EXAMPLE (with fake values):
+
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=john_lift
+DB_USER=john_liftuser
+DB_PASSWORD=MySecurePass123!
+PORT=3000
+NODE_ENV=production
+
+================================================================================
+
+WHERE TO GET THESE VALUES:
+
+1. Log into Hostinger cPanel
+2. Click "PostgreSQL Databases" (under Databases section)
+3. Create a new database:
+   - Database name will be automatically prefixed with your username
+   - Example: If you create "lift", it becomes "yourusername_lift"
+4. Create a new user:
+   - Choose a username (e.g., "liftuser")
+   - Set a strong password
+   - Remember this password!
+5. Add user to database:
+   - Select your database
+   - Select your user
+   - Click "Add"
+   - Grant "ALL PRIVILEGES"
+6. Use these values in your .env file
+
+================================================================================
+
+SAVE THIS FILE AS:  .env
+LOCATION: This folder (deploy-package)
+
+Then you can ZIP everything and upload to Hostinger!
+
+================================================================================
+
+

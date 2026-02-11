@@ -1,0 +1,13 @@
+# Node.js Passenger Configuration
+# This file tells Passenger (Node.js handler in cPanel) about your app
+
+# The command to start your app
+startup_file: server.js
+
+# Node.js version (cPanel will use the version you select in Setup Node.js App)
+# Usually 18.x or higher
+
+# Environment
+production
+
+

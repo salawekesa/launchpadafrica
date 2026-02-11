@@ -45,7 +45,8 @@ const addColumns = async () => {
       'ALTER TABLE startups ADD COLUMN IF NOT EXISTS vision TEXT',
       'ALTER TABLE startups ADD COLUMN IF NOT EXISTS admin_feedback TEXT',
       'ALTER TABLE startups ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP',
-      'ALTER TABLE startups ADD COLUMN IF NOT EXISTS reviewed_by VARCHAR(255)'
+      'ALTER TABLE startups ADD COLUMN IF NOT EXISTS reviewed_by VARCHAR(255)',
+      'ALTER TABLE startups ADD COLUMN IF NOT EXISTS created_by INTEGER'
     ];
     
     for (const column of columns) {

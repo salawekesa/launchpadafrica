@@ -81,6 +81,21 @@ The application uses two main tables:
 - `created_at` (TIMESTAMP)
 - `updated_at` (TIMESTAMP)
 
+### Hackathon module tables (created by same init)
+
+Running `npm run init-db` or `POST /init-db` also creates:
+
+- **hackathons** – id (TEXT), name, description, start_date, end_date, location, host_id, sponsors (JSONB), status, participants_count
+- **hackathon_winners** – id, hackathon_id, project_id, project_name, prize, rank, advanced_to_launch_pad
+- **hackathon_invitations** – id, hackathon_id, email, user_id, role, status, invited_at, responded_at, invited_by
+- **hackathon_participants** – id, hackathon_id, user_id, project_id, project_name, team_name, status, invited_via, registered_at, submitted_at
+- **hackathon_judges** – id, hackathon_id, user_id, name, email, avatar, invited_at, accepted_at
+- **hackathon_awards** – id, hackathon_id, name, description, rank, prize, project_id, project_name
+- **hackathon_criteria** – id, hackathon_id, name, description, weight, order
+- **hackathon_scores** – id, hackathon_id, project_id, judge_id, criterion_id, score, feedback, submitted_at
+
+Hackathon API: `GET/POST /api/hackathons`, `GET/PUT /api/hackathons/:id`, `POST /api/hackathons/:id/invitations`, `POST /api/hackathons/:id/participants`, `POST /api/hackathons/:id/judges`, `PUT /api/hackathons/:id/awards/:awardId/winner`, `POST /api/hackathons/:id/scores`, `GET /api/hackathons/:id/scoreboard`.
+
 ## API Functions
 
 The application provides these database functions:
