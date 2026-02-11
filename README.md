@@ -1,4 +1,5 @@
 # 🚀 LaunchpadAFRICA
+# 🚀 LaunchpadAFRICA
 
 > **The premier platform for discovering, supporting, and celebrating the next generation of Web2 and Web3 startups across Africa.**
 
