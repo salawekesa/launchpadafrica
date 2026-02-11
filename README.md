@@ -23,7 +23,7 @@
 
 ## 🎯 Business Overview
 
-### What is LaunchpadAFRICA?
+### What is Launchpad
 
 LaunchpadAFRICA is a comprehensive startup ecosystem platform designed to showcase, support, and accelerate the growth of innovative startups across Africa. Our platform serves as a bridge between promising startups and the broader tech community, investors, and potential users.
 
