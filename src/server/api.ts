@@ -8,6 +8,7 @@ import {
   getLeaderboard, 
   addStartup, 
   updateStartup, 
+  StartupUpdateValidationError,
   deleteStartup, 
   addTeamMembers, 
   getTeamMembers, 
@@ -161,6 +162,9 @@ app.put('/api/startups/:id', async (req, res) => {
     const startup = await updateStartup(id, req.body);
     res.json(startup);
   } catch (error) {
+    if (error instanceof StartupUpdateValidationError) {
+      return res.status(400).json({ message: error.message });
+    }
     res.status(500).json({ 
       message: 'Failed to update startup',
       error: errorDetail(error)
