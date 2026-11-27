@@ -429,32 +429,41 @@ export const createStartupSupport = async (startupId: number, supportType: strin
   }
 };
 
-// Update startup
+// Startup profile fields from the startups table. Review fields belong to updateStartupStatus.
+const editableStartupColumns = [
+  'name', 'tagline', 'description', 'category', 'stage', 'founded_date', 'users', 'growth',
+  'founder_name', 'founder_email', 'founder_bio', 'team_size',
+  'problem', 'solution', 'target_market', 'business_model', 'revenue', 'funding',
+  'website', 'email', 'twitter', 'linkedin', 'github', 'milestones', 'challenges', 'vision',
+] satisfies (keyof Omit<Startup, 'id' | 'created_at' | 'updated_at'>)[];
+
+export class StartupUpdateValidationError extends Error {}
+
 export const updateStartup = async (id: number, startup: Partial<Startup>): Promise<Startup> => {
-  try {
-    const fields = [];
-    const values = [];
-    let paramCount = 1;
+  if (!startup || typeof startup !== 'object' || Array.isArray(startup)) {
+    throw new StartupUpdateValidationError('Expected a startup update object');
+  }
 
-    Object.entries(startup).forEach(([key, value]) => {
-      if (key !== 'id' && value !== undefined) {
-        fields.push(`${key} = $${paramCount}`);
-        values.push(value);
-        paramCount++;
-      }
-    });
-
-    if (fields.length === 0) {
-      throw new Error('No fields to update');
+  const fields: string[] = [];
+  const values: unknown[] = [];
+  for (const [key, value] of Object.entries(startup)) {
+    const column = editableStartupColumns.find(allowed => allowed === key);
+    if (column === undefined) {
+      throw new StartupUpdateValidationError('Unknown or read-only startup field');
     }
+    if (value !== undefined) {
+      values.push(value);
+      fields.push(`${column} = $${values.length}`);
+    }
+  }
+  if (fields.length === 0) throw new StartupUpdateValidationError('No fields to update');
 
-    fields.push(`updated_at = CURRENT_TIMESTAMP`);
-    values.push(id);
-
+  values.push(id);
+  try {
     const result = await pool.query(`
-      UPDATE startups 
-      SET ${fields.join(', ')}
-      WHERE id = $${paramCount}
+      UPDATE startups
+      SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $${values.length}
       RETURNING *
     `, values);
 

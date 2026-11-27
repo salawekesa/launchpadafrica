@@ -8,6 +8,7 @@ import {
   getLeaderboard, 
   addStartup, 
   updateStartup, 
+  StartupUpdateValidationError,
   deleteStartup, 
   addTeamMembers, 
   getTeamMembers, 
@@ -49,6 +50,18 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+function errorDetail(error: unknown) {
+  console.error(error);
+  if (process.env.NODE_ENV === 'production') return undefined;
+  return error instanceof Error ? error.message : 'Unknown error';
+}
+
+function positiveId(value: unknown): number | undefined {
+  if (typeof value !== 'number' && (typeof value !== 'string' || !/^\d+$/.test(value))) return undefined;
+  const id = Number(value);
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined;
+}
+
 // Middleware
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:4173'],
@@ -69,7 +82,7 @@ app.get('/health', async (req, res) => {
     res.status(500).json({ 
       status: 'error', 
       message: 'Database connection failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -86,7 +99,7 @@ app.post('/init-db', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Database initialization failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -94,12 +107,15 @@ app.post('/init-db', async (req, res) => {
 // Startups endpoints
 app.get('/api/startups', async (req, res) => {
   try {
+    if (req.query.created_by !== undefined && positiveId(req.query.created_by) === undefined) {
+      return res.status(400).json({ message: 'created_by must be a positive integer' });
+    }
     const startups = await getStartups();
     res.json(startups);
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch startups',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -112,7 +128,7 @@ app.get('/api/startups/category/:category', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch startups by category',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -120,6 +136,9 @@ app.get('/api/startups/category/:category', async (req, res) => {
 app.post('/api/startups', async (req, res) => {
   try {
     const { teamMembers, ...startupData } = req.body;
+    if (startupData.created_by !== undefined && positiveId(startupData.created_by) === undefined) {
+      return res.status(400).json({ message: 'created_by must be a positive integer' });
+    }
     const startup = await addStartup(startupData);
     
     // Add team members if provided
@@ -131,33 +150,38 @@ app.post('/api/startups', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to create startup',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
 
 app.put('/api/startups/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    const startup = await updateStartup(parseInt(id), req.body);
+    const id = positiveId(req.params.id);
+    if (id === undefined) return res.status(400).json({ message: 'Invalid startup id' });
+    const startup = await updateStartup(id, req.body);
     res.json(startup);
   } catch (error) {
+    if (error instanceof StartupUpdateValidationError) {
+      return res.status(400).json({ message: error.message });
+    }
     res.status(500).json({ 
       message: 'Failed to update startup',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
 
 app.delete('/api/startups/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    await deleteStartup(parseInt(id));
+    const id = positiveId(req.params.id);
+    if (id === undefined) return res.status(400).json({ message: 'Invalid startup id' });
+    await deleteStartup(id);
     res.json({ message: 'Startup deleted successfully' });
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to delete startup',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -165,13 +189,14 @@ app.delete('/api/startups/:id', async (req, res) => {
 // Team members endpoints
 app.get('/api/startups/:id/team', async (req, res) => {
   try {
-    const { id } = req.params;
-    const teamMembers = await getTeamMembers(parseInt(id));
+    const id = positiveId(req.params.id);
+    if (id === undefined) return res.status(400).json({ message: 'Invalid startup id' });
+    const teamMembers = await getTeamMembers(id);
     res.json(teamMembers);
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch team members',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -185,21 +210,22 @@ app.get('/api/startups/status/:status', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch startups by status',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
 
 app.put('/api/startups/:id/status', async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = positiveId(req.params.id);
+    if (id === undefined) return res.status(400).json({ message: 'Invalid startup id' });
     const { status, adminFeedback, reviewedBy } = req.body;
-    const startup = await updateStartupStatus(parseInt(id), status, adminFeedback, reviewedBy);
+    const startup = await updateStartupStatus(id, status, adminFeedback, reviewedBy);
     res.json(startup);
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to update startup status',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -212,7 +238,7 @@ app.get('/api/leaderboard', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch leaderboard',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -220,26 +246,30 @@ app.get('/api/leaderboard', async (req, res) => {
 // User Management endpoints
 app.get('/api/user/:id', async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = positiveId(req.params.id);
+    if (userId === undefined) return res.status(400).json({ message: 'Invalid id' });
     const user = await getUserById(userId);
     res.json(user);
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch user',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
 
 app.post('/api/user', async (req, res) => {
   try {
-    const { name, email, bio } = req.body;
+    const { name, email, bio } = req.body ?? {};
+    if (![name, email, bio].every(value => typeof value === 'string' && value.trim() !== '')) {
+      return res.status(400).json({ message: 'Name, email and bio must be nonempty strings' });
+    }
     const user = await createUser(name, email, bio);
     res.json(user);
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to create user',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -247,27 +277,32 @@ app.post('/api/user', async (req, res) => {
 // User Activity endpoints
 app.get('/api/user/:id/activities', async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = positiveId(req.params.id);
+    if (userId === undefined) return res.status(400).json({ message: 'Invalid id' });
     const activities = await getUserActivities(userId);
     res.json(activities);
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch user activities',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
 
 app.post('/api/user/:id/activities', async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = positiveId(req.params.id);
+    if (userId === undefined) return res.status(400).json({ message: 'Invalid id' });
     const { startup_id, activity_type, activity_data } = req.body;
+    if (startup_id !== undefined && positiveId(startup_id) === undefined) {
+      return res.status(400).json({ message: 'Invalid startup id' });
+    }
     const activity = await logUserActivity(userId, startup_id, activity_type, activity_data);
     res.json(activity);
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to log user activity',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -275,41 +310,47 @@ app.post('/api/user/:id/activities', async (req, res) => {
 // User Interaction endpoints
 app.get('/api/user/:id/interactions', async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = positiveId(req.params.id);
+    if (userId === undefined) return res.status(400).json({ message: 'Invalid id' });
     const interactions = await getUserInteractions(userId);
     res.json(interactions);
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch user interactions',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
 
 app.post('/api/user/:id/interactions', async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = positiveId(req.params.id);
+    if (userId === undefined) return res.status(400).json({ message: 'Invalid id' });
     const { startup_id, interaction_type, interaction_data } = req.body;
+    if (startup_id !== undefined && positiveId(startup_id) === undefined) {
+      return res.status(400).json({ message: 'Invalid startup id' });
+    }
     const interaction = await createUserInteraction(userId, startup_id, interaction_type, interaction_data);
     res.json(interaction);
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to create user interaction',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
 
 app.put('/api/interactions/:id/status', async (req, res) => {
   try {
-    const interactionId = parseInt(req.params.id);
+    const interactionId = positiveId(req.params.id);
+    if (interactionId === undefined) return res.status(400).json({ message: 'Invalid id' });
     const { status } = req.body;
     const interaction = await updateInteractionStatus(interactionId, status);
     res.json(interaction);
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to update interaction status',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -317,27 +358,29 @@ app.put('/api/interactions/:id/status', async (req, res) => {
 // Startup Support endpoints
 app.get('/api/startup/:id/support', async (req, res) => {
   try {
-    const startupId = parseInt(req.params.id);
+    const startupId = positiveId(req.params.id);
+    if (startupId === undefined) return res.status(400).json({ message: 'Invalid id' });
     const support = await getStartupSupport(startupId);
     res.json(support);
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch startup support',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
 
 app.post('/api/startup/:id/support', async (req, res) => {
   try {
-    const startupId = parseInt(req.params.id);
+    const startupId = positiveId(req.params.id);
+    if (startupId === undefined) return res.status(400).json({ message: 'Invalid id' });
     const { support_type, title, description, requirements, contact_info } = req.body;
     const support = await createStartupSupport(startupId, support_type, title, description, requirements, contact_info);
     res.json(support);
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to create startup support',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -350,7 +393,7 @@ app.get('/api/hackathons', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to fetch hackathons',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -367,7 +410,7 @@ app.get('/api/hackathons/:id', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to fetch hackathon',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -419,7 +462,7 @@ app.post('/api/hackathons', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to create hackathon',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -452,7 +495,7 @@ app.put('/api/hackathons/:id', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to update hackathon',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -485,8 +528,8 @@ app.post('/api/hackathons/:id/invitations', async (req, res) => {
             data: { invitationId: inv.id, hackathonId: id },
           });
         }
-      } catch (_) {
-        // ignore notification errors
+      } catch (error) {
+        console.error('Failed to notify hackathon invitee:', error);
       }
     }
     res.status(201).json({
@@ -503,7 +546,7 @@ app.post('/api/hackathons/:id/invitations', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to create invitation',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -539,7 +582,7 @@ app.get('/api/hackathons/:id/participants/me', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to get participation',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -577,7 +620,7 @@ app.post('/api/hackathons/:id/participants', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to create participant',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -614,7 +657,7 @@ app.put('/api/hackathons/:id/participants/:participantId', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to update participant',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -643,7 +686,7 @@ app.post('/api/hackathons/:id/judges', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to create judge',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -662,7 +705,7 @@ app.put('/api/hackathons/:id/awards/:awardId/winner', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to assign award winner',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -670,13 +713,17 @@ app.put('/api/hackathons/:id/awards/:awardId/winner', async (req, res) => {
 app.post('/api/hackathons/:id/scores', async (req, res) => {
   try {
     const { id } = req.params;
-    const { projectId, judgeId, criterionId, score, feedback } = req.body;
+    const { projectId, judgeId, criterionId, score, feedback } = req.body ?? {};
+    const numericScore = typeof score === 'number' || (typeof score === 'string' && score.trim() !== '') ? Number(score) : NaN;
+    if (!Number.isFinite(numericScore) || numericScore < 0 || numericScore > 100) {
+      return res.status(400).json({ message: 'Score must be a finite number between 0 and 100' });
+    }
     const s = await dbUpsertScore({
       hackathon_id: id,
       project_id: projectId,
       judge_id: judgeId,
       criterion_id: criterionId,
-      score: Number(score),
+      score: numericScore,
       feedback,
     });
     res.status(201).json({
@@ -692,7 +739,7 @@ app.post('/api/hackathons/:id/scores', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to submit score',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -705,7 +752,7 @@ app.get('/api/hackathons/:id/scoreboard', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to fetch scoreboard',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -719,9 +766,19 @@ app.post('/api/hackathons/:id/finalize-winners', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to finalize winners',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
+});
+
+app.use((err: { type?: string; status?: number }, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (res.headersSent) return next(err);
+  const detail = errorDetail(err);
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ message: 'Malformed request body' });
+  }
+  const status = err.status && err.status >= 400 && err.status < 600 ? err.status : 500;
+  return res.status(status).json({ message: status < 500 ? 'Invalid request' : 'Internal server error', error: detail });
 });
 
 // Only listen when run directly (e.g. tsx src/server/api.ts); when imported by server.js, do not listen
