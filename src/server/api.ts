@@ -55,6 +55,12 @@ function errorDetail(error: unknown) {
   return error instanceof Error ? error.message : 'Unknown error';
 }
 
+function positiveId(value: unknown): number | undefined {
+  if (typeof value !== 'number' && (typeof value !== 'string' || !/^\d+$/.test(value))) return undefined;
+  const id = Number(value);
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined;
+}
+
 // Middleware
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:4173'],
@@ -100,6 +106,9 @@ app.post('/init-db', async (req, res) => {
 // Startups endpoints
 app.get('/api/startups', async (req, res) => {
   try {
+    if (req.query.created_by !== undefined && positiveId(req.query.created_by) === undefined) {
+      return res.status(400).json({ message: 'created_by must be a positive integer' });
+    }
     const startups = await getStartups();
     res.json(startups);
   } catch (error) {
@@ -126,6 +135,9 @@ app.get('/api/startups/category/:category', async (req, res) => {
 app.post('/api/startups', async (req, res) => {
   try {
     const { teamMembers, ...startupData } = req.body;
+    if (startupData.created_by !== undefined && positiveId(startupData.created_by) === undefined) {
+      return res.status(400).json({ message: 'created_by must be a positive integer' });
+    }
     const startup = await addStartup(startupData);
     
     // Add team members if provided
@@ -144,8 +156,9 @@ app.post('/api/startups', async (req, res) => {
 
 app.put('/api/startups/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    const startup = await updateStartup(parseInt(id), req.body);
+    const id = positiveId(req.params.id);
+    if (id === undefined) return res.status(400).json({ message: 'Invalid startup id' });
+    const startup = await updateStartup(id, req.body);
     res.json(startup);
   } catch (error) {
     res.status(500).json({ 
@@ -157,8 +170,9 @@ app.put('/api/startups/:id', async (req, res) => {
 
 app.delete('/api/startups/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    await deleteStartup(parseInt(id));
+    const id = positiveId(req.params.id);
+    if (id === undefined) return res.status(400).json({ message: 'Invalid startup id' });
+    await deleteStartup(id);
     res.json({ message: 'Startup deleted successfully' });
   } catch (error) {
     res.status(500).json({ 
@@ -171,8 +185,9 @@ app.delete('/api/startups/:id', async (req, res) => {
 // Team members endpoints
 app.get('/api/startups/:id/team', async (req, res) => {
   try {
-    const { id } = req.params;
-    const teamMembers = await getTeamMembers(parseInt(id));
+    const id = positiveId(req.params.id);
+    if (id === undefined) return res.status(400).json({ message: 'Invalid startup id' });
+    const teamMembers = await getTeamMembers(id);
     res.json(teamMembers);
   } catch (error) {
     res.status(500).json({ 
@@ -198,9 +213,10 @@ app.get('/api/startups/status/:status', async (req, res) => {
 
 app.put('/api/startups/:id/status', async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = positiveId(req.params.id);
+    if (id === undefined) return res.status(400).json({ message: 'Invalid startup id' });
     const { status, adminFeedback, reviewedBy } = req.body;
-    const startup = await updateStartupStatus(parseInt(id), status, adminFeedback, reviewedBy);
+    const startup = await updateStartupStatus(id, status, adminFeedback, reviewedBy);
     res.json(startup);
   } catch (error) {
     res.status(500).json({ 
@@ -226,7 +242,8 @@ app.get('/api/leaderboard', async (req, res) => {
 // User Management endpoints
 app.get('/api/user/:id', async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = positiveId(req.params.id);
+    if (userId === undefined) return res.status(400).json({ message: 'Invalid id' });
     const user = await getUserById(userId);
     res.json(user);
   } catch (error) {
@@ -239,7 +256,10 @@ app.get('/api/user/:id', async (req, res) => {
 
 app.post('/api/user', async (req, res) => {
   try {
-    const { name, email, bio } = req.body;
+    const { name, email, bio } = req.body ?? {};
+    if (![name, email, bio].every(value => typeof value === 'string' && value.trim() !== '')) {
+      return res.status(400).json({ message: 'Name, email and bio must be nonempty strings' });
+    }
     const user = await createUser(name, email, bio);
     res.json(user);
   } catch (error) {
@@ -253,7 +273,8 @@ app.post('/api/user', async (req, res) => {
 // User Activity endpoints
 app.get('/api/user/:id/activities', async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = positiveId(req.params.id);
+    if (userId === undefined) return res.status(400).json({ message: 'Invalid id' });
     const activities = await getUserActivities(userId);
     res.json(activities);
   } catch (error) {
@@ -266,8 +287,12 @@ app.get('/api/user/:id/activities', async (req, res) => {
 
 app.post('/api/user/:id/activities', async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = positiveId(req.params.id);
+    if (userId === undefined) return res.status(400).json({ message: 'Invalid id' });
     const { startup_id, activity_type, activity_data } = req.body;
+    if (startup_id !== undefined && positiveId(startup_id) === undefined) {
+      return res.status(400).json({ message: 'Invalid startup id' });
+    }
     const activity = await logUserActivity(userId, startup_id, activity_type, activity_data);
     res.json(activity);
   } catch (error) {
@@ -281,7 +306,8 @@ app.post('/api/user/:id/activities', async (req, res) => {
 // User Interaction endpoints
 app.get('/api/user/:id/interactions', async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = positiveId(req.params.id);
+    if (userId === undefined) return res.status(400).json({ message: 'Invalid id' });
     const interactions = await getUserInteractions(userId);
     res.json(interactions);
   } catch (error) {
@@ -294,8 +320,12 @@ app.get('/api/user/:id/interactions', async (req, res) => {
 
 app.post('/api/user/:id/interactions', async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = positiveId(req.params.id);
+    if (userId === undefined) return res.status(400).json({ message: 'Invalid id' });
     const { startup_id, interaction_type, interaction_data } = req.body;
+    if (startup_id !== undefined && positiveId(startup_id) === undefined) {
+      return res.status(400).json({ message: 'Invalid startup id' });
+    }
     const interaction = await createUserInteraction(userId, startup_id, interaction_type, interaction_data);
     res.json(interaction);
   } catch (error) {
@@ -308,7 +338,8 @@ app.post('/api/user/:id/interactions', async (req, res) => {
 
 app.put('/api/interactions/:id/status', async (req, res) => {
   try {
-    const interactionId = parseInt(req.params.id);
+    const interactionId = positiveId(req.params.id);
+    if (interactionId === undefined) return res.status(400).json({ message: 'Invalid id' });
     const { status } = req.body;
     const interaction = await updateInteractionStatus(interactionId, status);
     res.json(interaction);
@@ -323,7 +354,8 @@ app.put('/api/interactions/:id/status', async (req, res) => {
 // Startup Support endpoints
 app.get('/api/startup/:id/support', async (req, res) => {
   try {
-    const startupId = parseInt(req.params.id);
+    const startupId = positiveId(req.params.id);
+    if (startupId === undefined) return res.status(400).json({ message: 'Invalid id' });
     const support = await getStartupSupport(startupId);
     res.json(support);
   } catch (error) {
@@ -336,7 +368,8 @@ app.get('/api/startup/:id/support', async (req, res) => {
 
 app.post('/api/startup/:id/support', async (req, res) => {
   try {
-    const startupId = parseInt(req.params.id);
+    const startupId = positiveId(req.params.id);
+    if (startupId === undefined) return res.status(400).json({ message: 'Invalid id' });
     const { support_type, title, description, requirements, contact_info } = req.body;
     const support = await createStartupSupport(startupId, support_type, title, description, requirements, contact_info);
     res.json(support);
@@ -676,13 +709,17 @@ app.put('/api/hackathons/:id/awards/:awardId/winner', async (req, res) => {
 app.post('/api/hackathons/:id/scores', async (req, res) => {
   try {
     const { id } = req.params;
-    const { projectId, judgeId, criterionId, score, feedback } = req.body;
+    const { projectId, judgeId, criterionId, score, feedback } = req.body ?? {};
+    const numericScore = typeof score === 'number' || (typeof score === 'string' && score.trim() !== '') ? Number(score) : NaN;
+    if (!Number.isFinite(numericScore) || numericScore < 0 || numericScore > 100) {
+      return res.status(400).json({ message: 'Score must be a finite number between 0 and 100' });
+    }
     const s = await dbUpsertScore({
       hackathon_id: id,
       project_id: projectId,
       judge_id: judgeId,
       criterion_id: criterionId,
-      score: Number(score),
+      score: numericScore,
       feedback,
     });
     res.status(201).json({

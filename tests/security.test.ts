@@ -4,16 +4,19 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import rootApp from '../server.js';
 import apiApp from '../src/server/api';
 import { dbService } from '../src/lib/db-service';
-import { getStartups } from '../src/lib/api';
-import { dbGetHackathonsList } from '../src/lib/hackathon-db';
+import { createUser, deleteStartup, getStartups } from '../src/lib/api';
+import { dbGetHackathonsList, dbUpsertScore } from '../src/lib/hackathon-db';
 
 vi.mock('dotenv', () => ({ default: { config: vi.fn() } }));
 vi.mock('../src/lib/database', () => ({ default: {} }));
-vi.mock('../src/lib/api', () => ({ getStartups: vi.fn() }));
+vi.mock('../src/lib/api', () => ({ getStartups: vi.fn(), createUser: vi.fn(), deleteStartup: vi.fn() }));
 vi.mock('../src/lib/db-service', () => ({
-  dbService: { ensureUserColumns: vi.fn(), getAllStartups: vi.fn() },
+  dbService: {
+    ensureUserColumns: vi.fn(), getAllStartups: vi.fn(), createUser: vi.fn(),
+    getOrCreateProjectWallet: vi.fn(), createInvestment: vi.fn(),
+  },
 }));
-vi.mock('../src/lib/hackathon-db', () => ({ dbGetHackathonsList: vi.fn() }));
+vi.mock('../src/lib/hackathon-db', () => ({ dbGetHackathonsList: vi.fn(), dbUpsertScore: vi.fn() }));
 
 // Supertest owns the HTTP listener. Skip the root entry point's startup side effects.
 vi.mock('../src/server/socket-server', () => ({ setupSocketServer: vi.fn() }));
@@ -69,3 +72,97 @@ it.each([['root', rootApp], ['standalone', apiApp]] as const)(
     expect(console.error).toHaveBeenCalled();
   },
 );
+
+it.each(['12abc', '0', '-1', '1.5', '1e2', ' 2', '9007199254740992'])(
+  'rejects invalid numeric ID %j before reading or deleting a startup', async id => {
+    await request(rootApp).get('/api/startups/' + encodeURIComponent(id)).expect(400);
+    await request(apiApp).delete('/api/startups/' + encodeURIComponent(id)).expect(400);
+    expect(dbService.getAllStartups).not.toHaveBeenCalled();
+    expect(deleteStartup).not.toHaveBeenCalled();
+  },
+);
+
+it('passes a valid numeric startup ID to the database', async () => {
+  await request(apiApp).delete('/api/startups/42').expect(200);
+  expect(deleteStartup).toHaveBeenCalledWith(42);
+});
+
+it('validates IDs in paths, queries and request bodies', async () => {
+  await request(rootApp).patch('/api/users/1x').send({}).expect(400);
+  await request(rootApp).get('/api/investor/my-investments?userId=1x').expect(400);
+  await request(rootApp).put('/api/notifications/1x/read?userId=1').expect(400);
+  await request(rootApp).get('/api/invitations/me?userId=1x').expect(400);
+  await request(apiApp).get('/api/startups/1x/team').expect(400);
+  await request(apiApp).put('/api/startups/1x/status').send({}).expect(400);
+  await request(apiApp).get('/api/user/1x/activities').expect(400);
+  await request(apiApp).put('/api/interactions/1x/status').send({}).expect(400);
+  await request(apiApp).post('/api/startup/1x/support').send({}).expect(400);
+  await request(apiApp).post('/api/user/1/activities').send({ startup_id: '2x' }).expect(400);
+  await request(apiApp).post('/api/user/1/interactions').send({ startup_id: -2 }).expect(400);
+});
+
+it('rejects invalid created_by filters before querying and preserves valid filtering', async () => {
+  for (const app of [rootApp, apiApp]) {
+    for (const filter of ['abc', '2abc', '', '0', '2&created_by=3']) {
+      await request(app).get('/api/startups?created_by=' + filter).expect(400);
+    }
+  }
+  expect(dbService.getAllStartups).not.toHaveBeenCalled();
+  expect(getStartups).not.toHaveBeenCalled();
+  vi.mocked(dbService.getAllStartups).mockResolvedValueOnce([{ id: 1, created_by: 7 }, { id: 2, created_by: 8 }]);
+  await request(rootApp).get('/api/startups?created_by=7').expect(200, [{ id: 1, created_by: 7 }]);
+});
+
+const investment = { investor_id: '7', entity_type: 'startup', entity_id: '8', amount: '2.5' };
+
+it.each([0, -1, '', '1abc', 'Infinity', '1e999', true, [2], null])(
+  'rejects investment amount %j before creating a wallet', async amount => {
+    await request(rootApp).post('/api/investor/invest').send({ ...investment, amount }).expect(400);
+    expect(dbService.getOrCreateProjectWallet).not.toHaveBeenCalled();
+    expect(dbService.createInvestment).not.toHaveBeenCalled();
+  },
+);
+
+it('validates investor and startup IDs before creating a wallet, and accepts a positive amount', async () => {
+  for (const invalid of [{ investor_id: '7x' }, { entity_id: '8x' }]) {
+    await request(rootApp).post('/api/investor/invest').send({ ...investment, ...invalid }).expect(400);
+  }
+  expect(dbService.getOrCreateProjectWallet).not.toHaveBeenCalled();
+  vi.mocked(dbService.getOrCreateProjectWallet).mockResolvedValueOnce({ id: 11 });
+  vi.mocked(dbService.createInvestment).mockResolvedValueOnce({ id: 12 });
+  await request(rootApp).post('/api/investor/invest').send(investment).expect(201, { id: 12 });
+  expect(dbService.createInvestment).toHaveBeenCalledWith({ investor_id: 7, project_wallet_id: 11, amount: 2.5, currency: 'ETH' });
+});
+
+it.each([['root', rootApp], ['standalone', apiApp]] as const)('%s enforces the inclusive 0–100 scoring range', async (_, app) => {
+  const send = (score: unknown) => request(app).post('/api/hackathons/hack-example/scores')
+    .send({ projectId: 'project-a', judgeId: 'judge-b', score });
+  for (const score of [-1, 101, 'Infinity', '1e999', '20abc', '', null, true, [3], undefined]) {
+    await send(score).expect(400);
+  }
+  expect(dbUpsertScore).not.toHaveBeenCalled();
+  for (const score of [0, '45.5', 100]) {
+    vi.mocked(dbUpsertScore).mockResolvedValueOnce({
+      id: 'score-c', hackathon_id: 'hack-example', project_id: 'project-a', judge_id: 'judge-b',
+      criterion_id: null, score: Number(score), feedback: null, submitted_at: '2026-01-01',
+    });
+    const { body } = await send(score).expect(201);
+    expect(body.score).toBe(Number(score));
+    expect(dbUpsertScore).toHaveBeenLastCalledWith(expect.objectContaining({ score: Number(score) }));
+  }
+});
+
+it.each([
+  ['root', rootApp, '/api/users', dbService.createUser, 201],
+  ['standalone', apiApp, '/api/user', createUser, 200],
+] as const)('%s requires nonempty strings for name, email and bio', async (_, app, path, create, status) => {
+  const profile = { name: 'Amina', email: 'amina@example.org', bio: 'Founder' };
+  for (const field of Object.keys(profile)) {
+    for (const value of [undefined, null, 123, '   ']) {
+      await request(app).post(path).send({ ...profile, [field]: value }).expect(400);
+    }
+  }
+  expect(create).not.toHaveBeenCalled();
+  await request(app).post(path).send(profile).expect(status);
+  expect(create).toHaveBeenCalledOnce();
+});

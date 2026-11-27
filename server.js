@@ -39,6 +39,16 @@ function logError(context, error) {
 }
 
 // API Routes
+function positiveId(value) {
+  if (typeof value !== 'number' && (typeof value !== 'string' || !/^\d+$/.test(value))) return undefined;
+  const id = Number(value);
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined;
+}
+
+function numericValue(value) {
+  return typeof value === 'number' || (typeof value === 'string' && value.trim() !== '') ? Number(value) : NaN;
+}
+
 // Health check
 app.get('/api/health', async (req, res) => {
   try {
@@ -64,15 +74,13 @@ app.get('/api/health', async (req, res) => {
 // Get all startups (optional filter: ?created_by=userId for "my startups")
 app.get('/api/startups', async (req, res) => {
   try {
-    let startups = await dbService.getAllStartups();
     const createdBy = req.query.created_by;
-    if (createdBy != null && createdBy !== '') {
-      const userId = parseInt(createdBy, 10);
-      if (!Number.isNaN(userId)) {
-        startups = startups.filter(s => s.created_by === userId);
-      }
+    const userId = positiveId(createdBy);
+    if (createdBy !== undefined && userId === undefined) {
+      return res.status(400).json({ error: 'created_by must be a positive integer' });
     }
-    res.json(startups);
+    const startups = await dbService.getAllStartups();
+    res.json(userId === undefined ? startups : startups.filter(s => s.created_by === userId));
   } catch (error) {
     const err = logError('GET /api/startups', error);
     const isDev = process.env.NODE_ENV !== 'production';
@@ -105,9 +113,10 @@ app.get('/api/startups/category/:category', async (req, res) => {
 // Get single startup by ID
 app.get('/api/startups/:id', async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = positiveId(req.params.id);
+    if (id === undefined) return res.status(400).json({ error: 'Invalid startup id' });
     const startups = await dbService.getAllStartups();
-    const startup = startups.find(s => s.id === parseInt(id));
+    const startup = startups.find(s => s.id === id);
     
     if (!startup) {
       return res.status(404).json({ error: 'Startup not found' });
@@ -136,6 +145,9 @@ app.post('/api/startups', async (req, res) => {
       });
     }
     
+    if (startupData.created_by !== undefined && positiveId(startupData.created_by) === undefined) {
+      return res.status(400).json({ error: 'created_by must be a positive integer' });
+    }
     console.log('New startup submitted:', startupData.name);
     
     const newStartup = await dbService.createStartup(startupData);
@@ -202,9 +214,9 @@ app.get('/api/users/by-email', async (req, res) => {
 // Auth: create user (for signup)
 app.post('/api/users', async (req, res) => {
   try {
-    const { name, email, bio, role } = req.body;
-    if (!name || !email) {
-      return res.status(400).json({ error: 'Name and email are required' });
+    const { name, email, bio, role } = req.body ?? {};
+    if (![name, email, bio].every(value => typeof value === 'string' && value.trim() !== '')) {
+      return res.status(400).json({ error: 'Name, email and bio must be nonempty strings' });
     }
     const user = await dbService.createUser({ name, email, bio, role });
     res.status(201).json(user);
@@ -223,8 +235,8 @@ app.post('/api/users', async (req, res) => {
 // Auth: update user (wallet, KYC) – in production verify requester is this user
 app.patch('/api/users/:id', async (req, res) => {
   try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) return res.status(400).json({ error: 'Invalid user id' });
+    const id = positiveId(req.params.id);
+    if (id === undefined) return res.status(400).json({ error: 'Invalid user id' });
     const { wallet_address, verification_level } = req.body;
     const user = await dbService.updateUser(id, { wallet_address, verification_level });
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -251,15 +263,23 @@ app.get('/api/investor/project-wallets', async (req, res) => {
 
 app.post('/api/investor/invest', async (req, res) => {
   try {
-    const { investor_id, entity_type, entity_id, amount, currency } = req.body;
+    const { investor_id, entity_type, entity_id, amount, currency } = req.body ?? {};
     if (investor_id == null || entity_type == null || entity_id == null || amount == null) {
       return res.status(400).json({ error: 'investor_id, entity_type, entity_id, and amount are required' });
     }
+    const investorId = positiveId(investor_id);
+    if (investorId === undefined || (entity_type === 'startup' && positiveId(entity_id) === undefined)) {
+      return res.status(400).json({ error: 'Invalid investor or startup id' });
+    }
+    const investmentAmount = numericValue(amount);
+    if (!Number.isFinite(investmentAmount) || investmentAmount <= 0) {
+      return res.status(400).json({ error: 'Amount must be a finite number greater than zero' });
+    }
     const wallet = await dbService.getOrCreateProjectWallet(entity_type, entity_id);
     const investment = await dbService.createInvestment({
-      investor_id: parseInt(investor_id, 10),
+      investor_id: investorId,
       project_wallet_id: wallet.id,
-      amount: parseFloat(amount),
+      amount: investmentAmount,
       currency: currency || 'ETH',
     });
     res.status(201).json(investment);
@@ -271,9 +291,9 @@ app.post('/api/investor/invest', async (req, res) => {
 
 app.get('/api/investor/my-investments', async (req, res) => {
   try {
-    const userId = parseInt(req.query.userId, 10);
-    if (Number.isNaN(userId)) {
-      return res.status(400).json({ error: 'userId is required' });
+    const userId = positiveId(req.query.userId);
+    if (userId === undefined) {
+      return res.status(400).json({ error: 'userId must be a positive integer' });
     }
     const investments = await dbService.getInvestmentsByInvestor(userId);
     res.json(investments);
@@ -293,6 +313,25 @@ app.use(['/api/hackathons', '/api/invitations', '/api/notifications', '/api/comm
 });
 
 // Hackathon API (so hackathons save to DB when using server.js)
+app.post('/api/hackathons/:id/scores', (req, res, next) => {
+  const score = numericValue(req.body?.score);
+  if (!Number.isFinite(score) || score < 0 || score > 100) {
+    return res.status(400).json({ message: 'Score must be a finite number between 0 and 100' });
+  }
+  next();
+});
+
+function requireUserId(req, res, next) {
+  if (positiveId(req.query.userId) === undefined) return res.status(400).json({ message: 'Invalid userId' });
+  next();
+}
+app.get(['/api/invitations/me', '/api/notifications'], requireUserId);
+app.put('/api/notifications/read-all', requireUserId);
+app.put('/api/notifications/:id/read', requireUserId, (req, res, next) => {
+  if (positiveId(req.params.id) === undefined) return res.status(400).json({ message: 'Invalid notification id' });
+  next();
+});
+
 const { registerHackathonRoutes } = await import('./src/server/hackathon-routes.ts');
 registerHackathonRoutes(app);
 
