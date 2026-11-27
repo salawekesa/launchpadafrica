@@ -49,6 +49,8 @@ export function HackathonManage() {
   }, [id, loadHackathonById]);
 
   const hackathon = id ? getHackathonById(id) : undefined;
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
   if (!id) {
     return (
       <div className="container py-8">
@@ -93,8 +95,6 @@ export function HackathonManage() {
         .map((s) => ({ projectId: s.projectId, criterionId: s.criterionId, score: s.score }))
     : [];
 
-  const [inviteLoading, setInviteLoading] = useState(false);
-  const [finalizing, setFinalizing] = useState(false);
   const handleFinalizeWinners = async () => {
     if (!id) return;
     setFinalizing(true);

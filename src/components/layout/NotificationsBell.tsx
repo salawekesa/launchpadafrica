@@ -61,14 +61,14 @@ export function NotificationsBell({ userId, userIdStr }: { userId: number; userI
     try {
       await fetch(`${API_BASE}/api/notifications/${id}/read?userId=${userId}`, { method: 'PUT' });
       setList((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));
-    } catch (_) {}
+    } catch (err) { console.error('Failed to mark notification as read', err); }
   };
 
   const markAllRead = async () => {
     try {
       await fetch(`${API_BASE}/api/notifications/read-all?userId=${userId}`, { method: 'PUT' });
       setList((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })));
-    } catch (_) {}
+    } catch (err) { console.error('Failed to mark all notifications as read', err); }
   };
 
   const respondToInvite = async (n: Notification, status: 'accepted' | 'declined') => {
