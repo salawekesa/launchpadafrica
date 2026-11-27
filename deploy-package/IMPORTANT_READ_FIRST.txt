@@ -1,0 +1,100 @@
+================================================================================
+  IMPORTANT: READ THIS BEFORE UPLOADING TO HOSTINGER
+================================================================================
+
+Your deployment package is ready! But you need to do ONE THING FIRST:
+
+================================================================================
+STEP 1: CREATE .env FILE (REQUIRED!)
+================================================================================
+
+Create a file named ".env" (yes, it starts with a dot) in THIS folder
+(deploy-package folder) with the following content:
+
+------- Copy everything below this line -------
+
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=your_database_name
+DB_USER=your_database_user
+DB_PASSWORD=your_database_password
+PORT=3000
+NODE_ENV=production
+
+------- Copy everything above this line -------
+
+REPLACE:
+- your_database_name = The database name you create in Hostinger cPanel
+- your_database_user = The database user you create in Hostinger cPanel
+- your_database_password = The password you set for that user
+
+HOW TO GET THESE VALUES:
+1. Log into Hostinger cPanel
+2. Go to "PostgreSQL Databases"
+3. Create a database (e.g., username_lift)
+4. Create a user with a password
+5. Add the user to the database with ALL PRIVILEGES
+6. Use those values in your .env file
+
+================================================================================
+STEP 2: CREATE THE ZIP FILE
+================================================================================
+
+1. Select ALL files in this deploy-package folder INCLUDING:
+   - .env (that you just created)
+   - package.json
+   - package-lock.json
+   - server.js
+   - dist folder
+   - src folder
+
+2. Right-click → "Send to" → "Compressed (zipped) folder"
+   OR use 7-Zip, WinRAR, etc.
+
+3. Name it something like "app-deploy.zip"
+
+IMPORTANT: Make sure the .env file is INSIDE the ZIP!
+
+================================================================================
+STEP 3: UPLOAD TO HOSTINGER
+================================================================================
+
+Follow the guide in:
+- Quick guide: QUICK_DEPLOY_CHECKLIST.md (in parent folder)
+- Full guide: HOSTINGER_CPANEL_GUIDE.md (in parent folder)
+
+Quick summary:
+1. Create PostgreSQL database in Hostinger cPanel
+2. Setup Node.js App in cPanel (Software section)
+3. Upload this ZIP to your application folder
+4. Extract the ZIP
+5. Run NPM Install in Setup Node.js App
+6. Restart the application
+7. Initialize database with: npm run init-db
+
+================================================================================
+NEED HELP?
+================================================================================
+
+See the detailed guides:
+- QUICK_DEPLOY_CHECKLIST.md (20-minute guide)
+- HOSTINGER_CPANEL_GUIDE.md (comprehensive guide)
+
+Both are in the parent folder (plp-spark-launch)
+
+================================================================================
+CHECKLIST
+================================================================================
+
+Before uploading, make sure:
+[ ] .env file created with YOUR database credentials
+[ ] .env file is included in the ZIP
+[ ] All files listed above are in the ZIP
+[ ] PostgreSQL database created in Hostinger cPanel
+[ ] Node.js App configured in Hostinger cPanel
+
+================================================================================
+
+Good luck with your deployment! 🚀
+
+
