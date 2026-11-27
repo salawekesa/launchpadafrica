@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
   return {
   envDir,
   test: {
+    alias: { "./src/lib/db-service.js": path.resolve(__dirname, "src/lib/db-service.ts") },
     environment: "jsdom",
     globals: true,
     exclude: [...configDefaults.exclude, "**/{deploy-package,fork-launchpad-main,public}/**"],

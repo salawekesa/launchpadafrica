@@ -5,7 +5,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { dbService } from './src/lib/db-service.ts';
+import { dbService } from './src/lib/db-service.js';
 
 // Load environment variables
 dotenv.config();
