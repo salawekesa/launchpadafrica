@@ -331,7 +331,7 @@ export default function HackathonDetail() {
                           <div className="font-medium">{j.name}</div>
                         </div>
                       ))}
-                    {!managed.hostId && (!managed.judges?.length ?? true) && (
+                    {!managed.hostId && !managed.judges?.length && (
                       <p className="text-sm text-muted-foreground">No team info available.</p>
                     )}
                   </div>
