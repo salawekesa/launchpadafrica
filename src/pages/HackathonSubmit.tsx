@@ -38,6 +38,7 @@ export default function HackathonSubmit() {
   const [repoUrl, setRepoUrl] = useState('');
   const [demoUrl, setDemoUrl] = useState('');
 
+  const [submitError, setSubmitError] = useState<string | null>(null);
   useEffect(() => {
     if (id) loadHackathonById(id);
   }, [id, loadHackathonById]);
@@ -134,7 +135,6 @@ export default function HackathonSubmit() {
     }
   };
 
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   return (
     <div className="container py-8 max-w-2xl">
