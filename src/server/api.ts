@@ -49,6 +49,12 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+function errorDetail(error: unknown) {
+  console.error(error);
+  if (process.env.NODE_ENV === 'production') return undefined;
+  return error instanceof Error ? error.message : 'Unknown error';
+}
+
 // Middleware
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:4173'],
@@ -69,7 +75,7 @@ app.get('/health', async (req, res) => {
     res.status(500).json({ 
       status: 'error', 
       message: 'Database connection failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -86,7 +92,7 @@ app.post('/init-db', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Database initialization failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -99,7 +105,7 @@ app.get('/api/startups', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch startups',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -112,7 +118,7 @@ app.get('/api/startups/category/:category', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch startups by category',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -131,7 +137,7 @@ app.post('/api/startups', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to create startup',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -144,7 +150,7 @@ app.put('/api/startups/:id', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to update startup',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -157,7 +163,7 @@ app.delete('/api/startups/:id', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to delete startup',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -171,7 +177,7 @@ app.get('/api/startups/:id/team', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch team members',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -185,7 +191,7 @@ app.get('/api/startups/status/:status', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch startups by status',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -199,7 +205,7 @@ app.put('/api/startups/:id/status', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to update startup status',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -212,7 +218,7 @@ app.get('/api/leaderboard', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch leaderboard',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -226,7 +232,7 @@ app.get('/api/user/:id', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch user',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -239,7 +245,7 @@ app.post('/api/user', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to create user',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -253,7 +259,7 @@ app.get('/api/user/:id/activities', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch user activities',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -267,7 +273,7 @@ app.post('/api/user/:id/activities', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to log user activity',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -281,7 +287,7 @@ app.get('/api/user/:id/interactions', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch user interactions',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -295,7 +301,7 @@ app.post('/api/user/:id/interactions', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to create user interaction',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -309,7 +315,7 @@ app.put('/api/interactions/:id/status', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to update interaction status',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -323,7 +329,7 @@ app.get('/api/startup/:id/support', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to fetch startup support',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -337,7 +343,7 @@ app.post('/api/startup/:id/support', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to create startup support',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorDetail(error)
     });
   }
 });
@@ -350,7 +356,7 @@ app.get('/api/hackathons', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to fetch hackathons',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -367,7 +373,7 @@ app.get('/api/hackathons/:id', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to fetch hackathon',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -419,7 +425,7 @@ app.post('/api/hackathons', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to create hackathon',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -452,7 +458,7 @@ app.put('/api/hackathons/:id', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to update hackathon',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -485,8 +491,8 @@ app.post('/api/hackathons/:id/invitations', async (req, res) => {
             data: { invitationId: inv.id, hackathonId: id },
           });
         }
-      } catch (_) {
-        // ignore notification errors
+      } catch (error) {
+        console.error('Failed to notify hackathon invitee:', error);
       }
     }
     res.status(201).json({
@@ -503,7 +509,7 @@ app.post('/api/hackathons/:id/invitations', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to create invitation',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -539,7 +545,7 @@ app.get('/api/hackathons/:id/participants/me', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to get participation',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -577,7 +583,7 @@ app.post('/api/hackathons/:id/participants', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to create participant',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -614,7 +620,7 @@ app.put('/api/hackathons/:id/participants/:participantId', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to update participant',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -643,7 +649,7 @@ app.post('/api/hackathons/:id/judges', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to create judge',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -662,7 +668,7 @@ app.put('/api/hackathons/:id/awards/:awardId/winner', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to assign award winner',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -692,7 +698,7 @@ app.post('/api/hackathons/:id/scores', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to submit score',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -705,7 +711,7 @@ app.get('/api/hackathons/:id/scoreboard', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to fetch scoreboard',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
 });
@@ -719,9 +725,19 @@ app.post('/api/hackathons/:id/finalize-winners', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to finalize winners',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorDetail(error),
     });
   }
+});
+
+app.use((err: { type?: string; status?: number }, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (res.headersSent) return next(err);
+  const detail = errorDetail(err);
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ message: 'Malformed request body' });
+  }
+  const status = err.status && err.status >= 400 && err.status < 600 ? err.status : 500;
+  return res.status(status).json({ message: status < 500 ? 'Invalid request' : 'Internal server error', error: detail });
 });
 
 // Only listen when run directly (e.g. tsx src/server/api.ts); when imported by server.js, do not listen

@@ -5,7 +5,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { dbService } from './src/lib/db-service.js';
+import { dbService } from './src/lib/db-service.ts';
 
 // Load environment variables
 dotenv.config();
@@ -34,8 +34,7 @@ app.use((req, res, next) => {
 // Log all errors with full stack
 function logError(context, error) {
   const err = error instanceof Error ? error : new Error(String(error));
-  console.error(`[${new Date().toISOString()}] ${context}:`, err.message);
-  if (err.stack) console.error(err.stack);
+  console.error(`[${new Date().toISOString()}] ${context}:`, error);
   return err;
 }
 
@@ -57,7 +56,7 @@ app.get('/api/health', async (req, res) => {
       status: 'error',
       timestamp: new Date().toISOString(),
       database: 'disconnected',
-      error: error instanceof Error ? error.message : String(error)
+      error: process.env.NODE_ENV === 'production' ? 'Database unavailable' : String(error instanceof Error ? error.message : error)
     });
   }
 });
@@ -79,7 +78,7 @@ app.get('/api/startups', async (req, res) => {
     const isDev = process.env.NODE_ENV !== 'production';
     res.status(500).json({ 
       error: 'Failed to fetch startups',
-      message: err.message,
+      message: isDev ? err.message : undefined,
       ...(isDev && { code: error?.code, detail: error?.detail })
     });
   }
@@ -97,7 +96,7 @@ app.get('/api/startups/category/:category', async (req, res) => {
     const isDev = process.env.NODE_ENV !== 'production';
     res.status(500).json({
       error: 'Failed to fetch startups',
-      message: err.message,
+      message: isDev ? err.message : undefined,
       ...(isDev && { code: error?.code, detail: error?.detail })
     });
   }
@@ -284,6 +283,15 @@ app.get('/api/investor/my-investments', async (req, res) => {
   }
 });
 
+// These mounted routes include the exception message alongside their public error message.
+app.use(['/api/hackathons', '/api/invitations', '/api/notifications', '/api/community'], (req, res, next) => {
+  if (process.env.NODE_ENV === 'production') {
+    const json = res.json.bind(res);
+    res.json = (body) => json(res.statusCode >= 500 ? { message: 'Internal server error' } : body);
+  }
+  next();
+});
+
 // Hackathon API (so hackathons save to DB when using server.js)
 const { registerHackathonRoutes } = await import('./src/server/hackathon-routes.ts');
 registerHackathonRoutes(app);
@@ -330,6 +338,10 @@ app.get('/{*path}', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
+  if (res.headersSent) return next(err);
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Malformed request body' });
+  }
   res.status(500).json({ 
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : undefined
