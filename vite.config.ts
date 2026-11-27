@@ -6,9 +6,11 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), "");
+  const envDir = mode === "test" ? path.resolve(__dirname, "tests") : process.cwd();
+  const env = loadEnv(mode, envDir, "");
   const apiPort = env.PORT || "3000";
   return {
+  envDir,
   test: {
     environment: "jsdom",
     globals: true,
