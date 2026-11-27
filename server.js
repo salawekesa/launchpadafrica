@@ -340,17 +340,36 @@ const { registerCommunityRoutes } = await import('./src/server/community-routes.
 registerCommunityRoutes(app);
 
 // Upload (hackathon submission attachments)
+const uploadFormats = [
+  { mime: 'image/png', extensions: ['.png'], signatures: [Buffer.from('89504e470d0a1a0a', 'hex')] },
+  { mime: 'image/jpeg', extensions: ['.jpg', '.jpeg'], signatures: [Buffer.from('ffd8ff', 'hex')] },
+  { mime: 'image/gif', extensions: ['.gif'], signatures: [Buffer.from('GIF87a'), Buffer.from('GIF89a')] },
+  { mime: 'application/pdf', extensions: ['.pdf'], signatures: [Buffer.from('%PDF-')] },
+];
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 app.use('/uploads', express.static(uploadsDir));
 app.post('/api/upload', (req, res) => {
   try {
-    const { file, filename } = req.body;
-    if (!file || !filename) {
+    const { file, filename, mimeType } = req.body ?? {};
+    if (typeof file !== 'string' || !file || typeof filename !== 'string' || !filename) {
       return res.status(400).json({ message: 'file and filename required' });
     }
-    const base64 = file.replace(/^data:[^;]+;base64,/, '');
+    const extension = path.extname(filename).toLowerCase();
+    const format = uploadFormats.find(format => format.extensions.includes(extension));
+    const header = /^data:([\w.+-]+\/[\w.+-]+);base64,/i.exec(file);
+    if (!format || (header && header[1].toLowerCase() !== format.mime) ||
+        (mimeType !== undefined && (typeof mimeType !== 'string' || mimeType.toLowerCase() !== format.mime))) {
+      return res.status(400).json({ message: 'Unsupported upload type' });
+    }
+    // The attachment form also sends raw base64; verify the type against the actual bytes.
+    const base64 = file.slice(header?.[0].length ?? 0);
     const buf = Buffer.from(base64, 'base64');
+    const canonical = buf.toString('base64');
+    if ((canonical !== base64 && canonical.replace(/=+$/, '') !== base64) ||
+        !format.signatures.some(prefix => buf.subarray(0, prefix.length).equals(prefix))) {
+      return res.status(400).json({ message: 'Invalid upload contents' });
+    }
     const safe = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
     const name = `${Date.now()}-${safe}`;
     const filepath = path.join(uploadsDir, name);

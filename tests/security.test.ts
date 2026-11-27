@@ -1,4 +1,5 @@
 // @vitest-environment node
+import fs from 'fs';
 import request from 'supertest';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import rootApp from '../server.js';
@@ -21,11 +22,11 @@ vi.mock('../src/lib/hackathon-db', () => ({ dbGetHackathonsList: vi.fn(), dbUpse
 // Supertest owns the HTTP listener. Skip the root entry point's startup side effects.
 vi.mock('../src/server/socket-server', () => ({ setupSocketServer: vi.fn() }));
 vi.mock('http', async (importOriginal) => {
-  const http = await importOriginal<typeof import('node:http')>();
+  const http = await importOriginal<{ default: typeof import('node:http') }>();
   return { ...http, default: { ...http.default, createServer: () => ({ listen: () => ({ on: vi.fn() }) }) } };
 });
 vi.mock('fs', async (importOriginal) => {
-  const fs = await importOriginal<typeof import('node:fs')>();
+  const fs = await importOriginal<{ default: typeof import('node:fs') }>();
   return { ...fs, default: { ...fs.default, existsSync: () => true, writeFileSync: vi.fn() } };
 });
 
@@ -165,4 +166,39 @@ it.each([
   expect(create).not.toHaveBeenCalled();
   await request(app).post(path).send(profile).expect(status);
   expect(create).toHaveBeenCalledOnce();
+});
+
+const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jv1kAAAAASUVORK5CYII=';
+const gif = 'R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+const pdf = Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF').toString('base64');
+const jpegHeader = Buffer.from('ffd8ffe000104a46494600010100000100010000', 'hex').toString('base64');
+
+it.each([
+  ['plot.PNG', png, png],
+  ['chart.gif', 'data:image/gif;base64,' + gif, gif],
+  ['photo.jpg', 'data:image/jpeg;base64,' + jpegHeader, jpegHeader],
+  ['photo.jpeg', jpegHeader, jpegHeader],
+  ['pitch.pdf', 'data:application/pdf;base64,' + pdf, pdf],
+])('accepts matching upload type and extension for %s', async (filename, file, base64) => {
+  const { body } = await request(rootApp).post('/api/upload').send({ filename, file }).expect(200);
+  expect(body.url).toMatch(/^\/uploads\/\d+-/);
+  expect(body.url.endsWith(filename)).toBe(true);
+  expect(fs.writeFileSync).toHaveBeenCalledWith(expect.stringContaining(filename), Buffer.from(base64, 'base64'));
+});
+
+it.each([
+  { filename: 'pitch.html', file: png },
+  { filename: 'pitch.zip', file: png },
+  { filename: 'pitch.svg', file: 'data:image/svg+xml;base64,' + png },
+  { filename: 'pitch', file: pdf },
+  { filename: 'pitch.png', file: 'data:text/html;base64,' + png },
+  { filename: 'pitch.png', file: png, mimeType: 'application/pdf' },
+  { filename: 'pitch.png', file: 'data:image/png;base64,' + pdf },
+  { filename: 'pitch.png', file: Buffer.from('<html>example</html>').toString('base64') },
+  { filename: 'pitch.png', file: png + '!' },
+  { filename: 'pitch.pdf', file: [] },
+  { filename: 123, file: png },
+])('rejects unsupported or mismatched uploads before writing ($filename)', async upload => {
+  await request(rootApp).post('/api/upload').send(upload).expect('Content-Type', /json/).expect(400);
+  expect(fs.writeFileSync).not.toHaveBeenCalled();
 });
